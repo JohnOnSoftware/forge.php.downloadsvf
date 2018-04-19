@@ -190,21 +190,16 @@ class DataManagement{
 
       private function ExtractSVF( $urn, $accessToken){
         $derivativeApi = new DerivativesApi( $accessToken);
-        //$urn = "urn_example"; // string | The Base64 (URL Safe) encoded design URN
         $accept_encoding = "accept_encoding_example"; // string | If specified with `gzip` or `*`, content will be compressed and returned in a GZIP format.
         
         try {
             $Manifest = $derivativeApi->getManifest($urn);
             $this->ParseManifest($Manifest['derivatives']);
-            // var_dump(($this->urns));
 
             foreach($this->urns as $key=>$item){
-                // if($item->MIME != 'application/autodesk-f2d' && $key>40 && $key<50){
-                //     continue;
-                // }
                 switch($item->MIME){
                     case "application/autodesk-svf":
-                        //$item->Path->Files = $this->SVFDerivates($item, $accessToken->getAccessToken());
+                        $item->Path->Files = $this->SVFDerivates($item, $accessToken->getAccessToken());
                         break;
                     case "application/autodesk-f2d":
                         $item->Path->Files = $this->F2DDerivates($item, $accessToken->getAccessToken());
@@ -225,11 +220,7 @@ class DataManagement{
                     );
                     break;
                 }
-
             }
-            // var_dump(($this->urns));
-            
-
         } catch (Exception $e) {
             echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
         }
@@ -237,62 +228,48 @@ class DataManagement{
       }
 
       private function GetDerivative($manifest, $accessToken){
-          // prepare to download the manifest
-        // Get cURL resource
+        $endpoint = self::$BASE_URL . self::$DERIVATIVE_PATH . urlencode($manifest);
+     
         $curl = curl_init();
-        // Set some options - we are passing in a useragent too here
-        $endpoint = self::$BASE_URL . self::$DERIVATIVE_PATH . $manifest;
-        $token = "authorization: Bearer " . $accessToken;
-        curl_setopt ($curl, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt_array($curl, array(
-            CURLOPT_URL => $endpoint,
-            CURLOPT_CUSTOMREQUEST => "GET",
-            CURLOPT_HTTPHEADER => array(
-                $token,
-                "Accept-Encoding: gzip, deflate",
-              ),
-          ));
-        // Send the request & save response to $resp
-        $resp = curl_exec($curl);
-        if( !$resp ){
-            echo curl_error($ch);
-        }
-        // Close request to clear up some resources
-        curl_close($curl);
-        var_dump($manifest);
-        var_dump($resp);
-
-        // $ret = stream_read($resp);
-        $content;
-        while( !streamWrapper::stream_eof($resp)){
-            $content = $content . streamWrapper::stream_read($resp);
-        }
+          CURLOPT_URL => $endpoint,
+          CURLOPT_RETURNTRANSFER => true,
+          CURLOPT_ENCODING => "",
+          CURLOPT_MAXREDIRS => 10,
+          CURLOPT_TIMEOUT => 30,
+          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
+          CURLOPT_CUSTOMREQUEST => "GET",
+          CURLOPT_HTTPHEADER => array(
+            "accept-encoding: gzip, deflate",
+            "authorization: Bearer " . $accessToken
+          ),
+        ));
         
-        // $content = stream_get_contents($resp);
-        var_dump($content);
-        die;
+        $response = curl_exec($curl);
+        $err = curl_error($curl);
+        
+        curl_close($curl);
+        
+        if ($err) {
+            echo "cURL Error #:" . $err;
+            return;
+        } else {
+            //   echo $response;
+            echo $manifest;
+            echo "successfully get the manifest.";
+        }  
 
 
-        // $header_array = get_headers($endpoint, true);
-        // $size = $header_array['Content-Length'];//获取远程app的大小
-        // header("Content-type: application/octet-stream");
-        // header("Accept-Encoding:  gzip, deflate");
-        // header( $token );
-        // header('Content-Disposition: attachment; filename="' . basename($endpoint) . '"');
-        // header("Content-Length: ".$size);//. filesize($file)
-        // readfile($endpoint);
-
-        ///////////////////////////
-        // $derivativeApi = new DerivativesApi( $accessToken);
-        // $derivativeApi->apiClient
-      
       }
 
       private function SVFDerivates($ManifestItem, $accessToken){
         $manifest = $this->GetDerivative($ManifestItem->Path->URN, $accessToken);
 
+        if(!$manifest)
+            return;
+
         $files = array();
-        array_push($files, $MainifestItem->Path->BasePath); // add the BasePath
+        array_push($files, $ManifestItem->Path->BasePath); // add the BasePath
         array_push($files, GetAssets($manifest));
 
         return $files;
@@ -300,6 +277,10 @@ class DataManagement{
 
       private function F2DDerivates($ManifestItem, $accessToken){
         $manifest = $this->GetDerivative($ManifestItem->Path->BasePath . "manifest.json.gz", $accessToken);
+
+        if(!$manifest)
+            return;
+
         $files = array();
         array_push($files, "manifest.json.gz");
         array_push($files, GetAssets($manifest));
@@ -309,17 +290,12 @@ class DataManagement{
 
       private function GetAssets($mainfest){
           // TBD
-        // List<string> files = new List<string>();
-
-        // // for each "asset" on the manifest, add to the list of files (skip embed)
-        // foreach (JObject asset in manifest["assets"])
-        // {
-        // System.Diagnostics.Debug.WriteLine(asset["URI"].Value<string>());
-        // if (asset["URI"].Value<string>().Contains("embed:/")) continue;
-        // files.Add(asset["URI"].Value<string>());
-        // }
-
-        // return files;          
+          $files = [];
+          foreach( $manifest['assets'] as $asset ){
+              if( strpos($asset['URI'], "embed:/" ) !== false ) 
+                    push_back($files, $asset['URI']);
+          }
+        return $files;   
       }
 
       private function ParseManifest( $manifest ){
