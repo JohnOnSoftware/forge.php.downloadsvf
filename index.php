@@ -39,7 +39,7 @@ $klein->respond('POST', '/api/forge/oss/objects', function () {
 });
 
 // Download svf package
-$klein->respond('GET', '/api/forge/oss/objects', function () {
+$klein->respond('POST', '/api/forge/oss/svf', function () {
     $dataManagement = new DataManagement();
     return $dataManagement->DownloadSVF();
 });

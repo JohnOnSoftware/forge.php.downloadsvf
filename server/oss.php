@@ -47,40 +47,10 @@ class ManifestItem{
 
 };
 
-//TBD Delete the class since will return json format
-class Resource
-{
-  /// <summary>
-  /// File name (no path)
-  /// </summary>
-  private $FileName;
-  /// <summary>
-  /// Remove path to download (must add developer.api.autodesk.com prefix)
-  /// </summary>
-  private $RemotePath;
-  /// <summary>
-  /// Path to save file locally
-  /// </summary>
-  private $LocalPath;
-
-  public function __get($property_name){
-    if(isset($this->$property_name)){
-        return($this->$property_name);
-    }else{
-        return(NULL);
-    }      
-  }
-
-    public function __set($property_name, $value){
-        $this->$property_name = $value;
-    }
-}
-
 class DataManagement{
 
     const BASE_URL          = 'https://developer.api.autodesk.com/';
     const DERIVATIVE_PATH   = "derivativeservice/v2/derivatives/";   
-    private static $urn      = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cGhwc2FtcGxlYnVja2V0L3dvcmtzaG9wX2JpbV9waHAucnZ0";
     private $urns = array();
     private static $ROLES = array(
         "Autodesk.CloudPlatform.DesignDescription",
@@ -207,7 +177,12 @@ class DataManagement{
       public function DownloadSVF( ){
         global $twoLeggedAuth;
         $accessToken = $twoLeggedAuth->getTokenInternal();
-        $this->ExtractSVF(self::$urn, $accessToken);
+
+        $body = json_decode(file_get_contents('php://input', 'r'), true);
+        $objectUrn = $body['objectName'];
+
+        $svfList = $this->ExtractSVF($objectUrn, $accessToken);
+        print_r(json_encode($svfList));
       }    
 
 
@@ -247,11 +222,6 @@ class DataManagement{
                 if( is_null($urnItem->Path->Files) )
                     continue;
                 foreach( $urnItem->Path->Files as $fileItem ){
-                    // $fileResource = new Resource();
-                    // $fileResource->FileName = $fileItem;
-                    // $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
-                    // $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
-                    
                     // response json format
                     $fileResource = array(
                         "FileName" => $fileItem,
@@ -262,7 +232,7 @@ class DataManagement{
                     $resourceList[] = $fileResource;
                 }
             }
-            print_r(json_encode($resourceList));
+            return $resourceList;
         } catch (Exception $e) {
             echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
         }
