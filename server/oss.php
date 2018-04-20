@@ -253,6 +253,7 @@ class DataManagement{
                 foreach( $urnItem->Path->Files as $fileItem ){
                     $fileResource = new Resource();
                     $fileResource->FileName = $fileItem;
+                    // TBD: make sure the remote Path is correct
                     $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
                     $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
                     
@@ -333,7 +334,7 @@ class DataManagement{
         if(!$manifest)
             return;
         $files = array();
-        $files[] = $ManifestItem->Path->BasePath;
+        $files[] = $ManifestItem->Path->RootFileName;
         return array_merge($files, $this->GetAssets($manifest));
       }
 
