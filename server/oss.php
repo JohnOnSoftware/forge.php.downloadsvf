@@ -47,7 +47,7 @@ class ManifestItem{
 
 };
 
-
+//TBD Delete the class since will return json format
 class Resource
 {
   /// <summary>
@@ -78,6 +78,9 @@ class Resource
 
 class DataManagement{
 
+    const BASE_URL          = 'https://developer.api.autodesk.com/';
+    const DERIVATIVE_PATH   = "derivativeservice/v2/derivatives/";   
+    private static $urn      = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cGhwc2FtcGxlYnVja2V0L3dvcmtzaG9wX2JpbV9waHAucnZ0";
     private $urns = array();
     private static $ROLES = array(
         "Autodesk.CloudPlatform.DesignDescription",
@@ -91,14 +94,6 @@ class DataManagement{
         "pdf",
         "lod"
     );
-
-    const BASE_URL          = 'https://developer.api.autodesk.com/';
-    const DERIVATIVE_PATH   = "derivativeservice/v2/derivatives/";   
-
-    public static $urn      = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cGhwc2FtcGxlYnVja2V0L3dvcmtzaG9wX2JpbV9waHAucnZ0";
-    
-    
-    
 
     public function __construct(){
         set_time_limit(0);
@@ -215,6 +210,7 @@ class DataManagement{
         $this->ExtractSVF(self::$urn, $accessToken);
       }    
 
+
       private function ExtractSVF( $urn, $accessToken){
         $derivativeApi = new DerivativesApi( $accessToken);      
         try {
@@ -251,20 +247,25 @@ class DataManagement{
                 if( is_null($urnItem->Path->Files) )
                     continue;
                 foreach( $urnItem->Path->Files as $fileItem ){
-                    $fileResource = new Resource();
-                    $fileResource->FileName = $fileItem;
-                    // TBD: make sure the remote Path is correct
-                    $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
-                    $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
+                    // $fileResource = new Resource();
+                    // $fileResource->FileName = $fileItem;
+                    // $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
+                    // $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
+                    
+                    // response json format
+                    $fileResource = array(
+                        "FileName" => $fileItem,
+                        "RemotePath" => self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem,
+                        "LocalPath"  => $urnItem->Path->LocalPath . $fileItem
+                    );
                     
                     $resourceList[] = $fileResource;
                 }
             }
-            var_dump($resourceList);
+            print_r(json_encode($resourceList));
         } catch (Exception $e) {
             echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
         }
-
       }
 
       private function GetDerivative($manifest, $accessToken){
