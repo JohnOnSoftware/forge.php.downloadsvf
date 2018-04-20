@@ -256,10 +256,25 @@ class DataManagement{
         $filename = substr(strrchr($manifest, "/"), 1); 
         file_put_contents($filename, $response);
 
+        $manifestJson = NULL;
         // Parse the svf and f2d manifest
         if( strpos($manifest, ".gz") === false ){
-
-
+            $zip = zip_open($filename);
+            if (is_resource($zip)) {
+                while ($zip_entry = zip_read($zip)) {
+                    
+                    $entryName = zip_entry_name($zip_entry);
+                    if( $entryName === "manifest.json"){
+                        if (zip_entry_open($zip, $zip_entry, "r")) {
+                            $buf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+                            $manifestJson = json_decode($buf,true);
+                            zip_entry_close($zip_entry);
+                        }
+                        break;
+                    }
+                }  
+                zip_close($zip);
+            }              
         }else{
             // Parse the manifest stream.
             $zip = new ZipArchive();
@@ -271,9 +286,11 @@ class DataManagement{
                 $str.=gzread($file, $buffer_size);
             }
             gzclose($file);
-            var_dump(json_decode($str,true));
+            $manifestJson= json_decode($str,true);
         }
         unlink($filename);
+        var_dump($manifestJson);
+        return $manifestJson;
       }
 
       private function SVFDerivates($ManifestItem, $accessToken){
