@@ -239,28 +239,27 @@ class DataManagement{
                          );
                         break;
                   default:
-                    $item->Path->Files = array(
-                        $item->Path->RootFileName
-                    );
+                         $item->Path->Files = array(
+                             $item->Path->RootFileName
+                         );
                     break;
                 }
             }
-
             $resourceList = array();
-
             // now organize the list for external usage
             foreach( $this->urns as $urnItem ){
+                if( is_null($urnItem->Path->Files) )
+                    continue;
                 foreach( $urnItem->Path->Files as $fileItem ){
                     $fileResource = new Resource();
                     $fileResource->FileName = $fileItem;
                     $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
                     $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
                     
-                    array_push($resourceList, $fileResource);
+                    $resourceList[] = $fileResource;
                 }
             }
-            echo "final list\n";
-            // var_dump($resourceList);
+            var_dump($resourceList);
         } catch (Exception $e) {
             echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
         }
@@ -298,7 +297,7 @@ class DataManagement{
         file_put_contents($filename, $response);
 
         $manifestJson = NULL;
-        // Parse the svf and f2d manifest
+        // Parse the svf manifest
         if( strpos($manifest, ".gz") === false ){
             $zip = zip_open($filename);
             if (is_resource($zip)) {
@@ -306,8 +305,8 @@ class DataManagement{
                     $entryName = zip_entry_name($zip_entry);
                     if( $entryName === "manifest.json"){
                         if (zip_entry_open($zip, $zip_entry, "r")) {
-                            // $buf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
-                            // $manifestJson = json_decode($buf,true);
+                            $buf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+                            $manifestJson = json_decode($buf,true);
                             zip_entry_close($zip_entry);
                         }
                         break;
@@ -316,10 +315,12 @@ class DataManagement{
                 zip_close($zip);
             }              
         }else{
-            // Parse the manifest stream.
-            $size = readgzfile($filename);
-            $gz = gzopen ( $filename, 'w9' );
-            $content = gzread ( $gz, $size );
+            // Parse the f2d manifest
+            $gz = gzopen ( $filename, 'r' );
+            $content = '';
+            while (!gzeof($gz)) {
+                $content = $content . gzread($gz, 4096);
+            }            
             $manifestJson= json_decode($content,true);
             gzclose ( $gz );
         }
@@ -331,29 +332,25 @@ class DataManagement{
         $manifest = $this->GetDerivative($ManifestItem->Path->URN, $accessToken);
         if(!$manifest)
             return;
-
         $files = array();
-        array_push($files, $ManifestItem->Path->BasePath); // add the BasePath
-        array_push($files, $this->GetAssets($manifest));
-        return $files;
+        $files[] = $ManifestItem->Path->BasePath;
+        return array_merge($files, $this->GetAssets($manifest));
       }
 
       private function F2DDerivates($ManifestItem, $accessToken){
         $manifest = $this->GetDerivative($ManifestItem->Path->BasePath . "manifest.json.gz", $accessToken);
         if(!$manifest)
             return;
-
         $files = array();
-        array_push($files, "manifest.json.gz");
-        array_push($files, $this->GetAssets($manifest));
-        return $files;
+        $files[] = "manifest.json.gz";
+        return array_merge($files, $this->GetAssets($manifest));
       }
 
       private function GetAssets($mainfest){
           $files = [];
           foreach( $mainfest['assets'] as $asset ){
               if( strpos($asset['URI'], "embed:/" ) === FALSE ) 
-                array_push($files, $asset['URI']);
+                $files[] = $asset['URI'];
           }
         return $files;   
       }
@@ -361,12 +358,12 @@ class DataManagement{
       private function ParseManifest( $manifest ){
         foreach($manifest as $item ){
             if( $item['role'] &&  (in_array($item['role'], self::$ROLES)) ){
-                $manifestItem = new ManifestItem();
+                $manifestItem       = new ManifestItem();
                 $manifestItem->Guid = $item['guid'];
                 $manifestItem->MIME = $item['mime'];
                 $manifestItem->Path = $this->DecomposeURN($item['urn']);
 
-                array_push($this->urns, $manifestItem);
+                $this->urns[] = $manifestItem;
             }
             if( $item['children']){
                 $this->ParseManifest($item['children']);
