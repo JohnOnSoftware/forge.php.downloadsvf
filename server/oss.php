@@ -195,7 +195,6 @@ class DataManagement{
         try {
             $Manifest = $derivativeApi->getManifest($urn);
             $this->ParseManifest($Manifest['derivatives']);
-
             foreach($this->urns as $key=>$item){
                 switch($item->MIME){
                     case "application/autodesk-svf":
@@ -228,8 +227,9 @@ class DataManagement{
       }
 
       private function GetDerivative($manifest, $accessToken){
+        // urlencode the manifest
         $endpoint = self::$BASE_URL . self::$DERIVATIVE_PATH . urlencode($manifest);
-     
+
         $curl = curl_init();
         curl_setopt_array($curl, array(
           CURLOPT_URL => $endpoint,
@@ -238,7 +238,7 @@ class DataManagement{
           CURLOPT_MAXREDIRS => 10,
           CURLOPT_TIMEOUT => 30,
           CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-          CURLOPT_CUSTOMREQUEST => "GET",
+          CURLOPT_CUSTOMREQUEST => "GET",          
           CURLOPT_HTTPHEADER => array(
             "accept-encoding: gzip, deflate",
             "authorization: Bearer " . $accessToken
@@ -247,19 +247,33 @@ class DataManagement{
         
         $response = curl_exec($curl);
         $err = curl_error($curl);
-        
-        curl_close($curl);
-        
+        curl_close($curl);        
         if ($err) {
             echo "cURL Error #:" . $err;
             return;
-        } else {
-            //   echo $response;
-            echo $manifest;
-            echo "successfully get the manifest.";
-        }  
+        } 
+
+        $filename = substr(strrchr($manifest, "/"), 1); 
+        file_put_contents($filename, $response);
+
+        // Parse the svf and f2d manifest
+        if( strpos($manifest, ".gz") === false ){
 
 
+        }else{
+            // Parse the manifest stream.
+            $zip = new ZipArchive();
+            $buffer_size = 4096; // read 4kb at a time
+            $file = gzopen($filename, 'wb');
+            
+            $str='';
+            while(!gzeof($file)) {
+                $str.=gzread($file, $buffer_size);
+            }
+            gzclose($file);
+            var_dump(json_decode($str,true));
+        }
+        unlink($filename);
       }
 
       private function SVFDerivates($ManifestItem, $accessToken){
@@ -322,9 +336,7 @@ class DataManagement{
         $path->RootFileName = substr(strrchr($urn, "/"), 1);
         $path->BasePath     = substr($urn, 0, strrpos($urn, "/")+1 );
         $path->LocalPath    = substr($path->BasePath, strpos($path->BasePath, "/")+1 );
-        //   $path->LocalPath    = str_replace( "[/]?output/", "", $path->LocalPath );
-        //TBD How to replace "/" ?   
-        $path->LocalPath    = preg_replace("/output/", "", $path->LocalPath);
+        $path->LocalPath    = preg_replace("/^output\//", "", $path->LocalPath);
 
         return $path;
       }
