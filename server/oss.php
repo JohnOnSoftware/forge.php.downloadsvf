@@ -48,6 +48,34 @@ class ManifestItem{
 };
 
 
+class Resource
+{
+  /// <summary>
+  /// File name (no path)
+  /// </summary>
+  private $FileName;
+  /// <summary>
+  /// Remove path to download (must add developer.api.autodesk.com prefix)
+  /// </summary>
+  private $RemotePath;
+  /// <summary>
+  /// Path to save file locally
+  /// </summary>
+  private $LocalPath;
+
+  public function __get($property_name){
+    if(isset($this->$property_name)){
+        return($this->$property_name);
+    }else{
+        return(NULL);
+    }      
+  }
+
+    public function __set($property_name, $value){
+        $this->$property_name = $value;
+    }
+}
+
 class DataManagement{
 
     private $urns = array();
@@ -64,11 +92,10 @@ class DataManagement{
         "lod"
     );
 
-    public static $BASE_URL = 'https://developer.api.autodesk.com/';
-    public static $DERIVATIVE_PATH = "derivativeservice/v2/derivatives/";   
-    // public static $DERIVATIVE_PATH = "modelderivative/v2/designdata/";
-    
-    public static $urn = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cGhwc2FtcGxlYnVja2V0L3dvcmtzaG9wX2JpbV9waHAucnZ0";
+    const BASE_URL          = 'https://developer.api.autodesk.com/';
+    const DERIVATIVE_PATH   = "derivativeservice/v2/derivatives/";   
+
+    public static $urn      = "dXJuOmFkc2sub2JqZWN0czpvcy5vYmplY3Q6cGhwc2FtcGxlYnVja2V0L3dvcmtzaG9wX2JpbV9waHAucnZ0";
     
     
     
@@ -189,9 +216,7 @@ class DataManagement{
       }    
 
       private function ExtractSVF( $urn, $accessToken){
-        $derivativeApi = new DerivativesApi( $accessToken);
-        $accept_encoding = "accept_encoding_example"; // string | If specified with `gzip` or `*`, content will be compressed and returned in a GZIP format.
-        
+        $derivativeApi = new DerivativesApi( $accessToken);      
         try {
             $Manifest = $derivativeApi->getManifest($urn);
             $this->ParseManifest($Manifest['derivatives']);
@@ -220,6 +245,22 @@ class DataManagement{
                     break;
                 }
             }
+
+            $resourceList = array();
+
+            // now organize the list for external usage
+            foreach( $this->urns as $urnItem ){
+                foreach( $urnItem->Path->Files as $fileItem ){
+                    $fileResource = new Resource();
+                    $fileResource->FileName = $fileItem;
+                    $fileResource->RemotePath = self::DERIVATIVE_PATH . $urnItem->Path->BasePath . $fileItem ;
+                    $fileResource->LocalPath = $urnItem->Path->LocalPath . $fileItem;
+                    
+                    array_push($resourceList, $fileResource);
+                }
+            }
+            echo "final list\n";
+            // var_dump($resourceList);
         } catch (Exception $e) {
             echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
         }
@@ -228,7 +269,7 @@ class DataManagement{
 
       private function GetDerivative($manifest, $accessToken){
         // urlencode the manifest
-        $endpoint = self::$BASE_URL . self::$DERIVATIVE_PATH . urlencode($manifest);
+        $endpoint = self::BASE_URL . self::DERIVATIVE_PATH . urlencode($manifest);
 
         $curl = curl_init();
         curl_setopt_array($curl, array(
@@ -262,12 +303,11 @@ class DataManagement{
             $zip = zip_open($filename);
             if (is_resource($zip)) {
                 while ($zip_entry = zip_read($zip)) {
-                    
                     $entryName = zip_entry_name($zip_entry);
                     if( $entryName === "manifest.json"){
                         if (zip_entry_open($zip, $zip_entry, "r")) {
-                            $buf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
-                            $manifestJson = json_decode($buf,true);
+                            // $buf = zip_entry_read($zip_entry, zip_entry_filesize($zip_entry));
+                            // $manifestJson = json_decode($buf,true);
                             zip_entry_close($zip_entry);
                         }
                         break;
@@ -277,54 +317,43 @@ class DataManagement{
             }              
         }else{
             // Parse the manifest stream.
-            $zip = new ZipArchive();
-            $buffer_size = 4096; // read 4kb at a time
-            $file = gzopen($filename, 'wb');
-            
-            $str='';
-            while(!gzeof($file)) {
-                $str.=gzread($file, $buffer_size);
-            }
-            gzclose($file);
-            $manifestJson= json_decode($str,true);
+            $size = readgzfile($filename);
+            $gz = gzopen ( $filename, 'w9' );
+            $content = gzread ( $gz, $size );
+            $manifestJson= json_decode($content,true);
+            gzclose ( $gz );
         }
         unlink($filename);
-        var_dump($manifestJson);
         return $manifestJson;
       }
 
       private function SVFDerivates($ManifestItem, $accessToken){
         $manifest = $this->GetDerivative($ManifestItem->Path->URN, $accessToken);
-
         if(!$manifest)
             return;
 
         $files = array();
         array_push($files, $ManifestItem->Path->BasePath); // add the BasePath
-        array_push($files, GetAssets($manifest));
-
+        array_push($files, $this->GetAssets($manifest));
         return $files;
       }
 
       private function F2DDerivates($ManifestItem, $accessToken){
         $manifest = $this->GetDerivative($ManifestItem->Path->BasePath . "manifest.json.gz", $accessToken);
-
         if(!$manifest)
             return;
 
         $files = array();
         array_push($files, "manifest.json.gz");
-        array_push($files, GetAssets($manifest));
-
+        array_push($files, $this->GetAssets($manifest));
         return $files;
       }
 
       private function GetAssets($mainfest){
-          // TBD
           $files = [];
-          foreach( $manifest['assets'] as $asset ){
-              if( strpos($asset['URI'], "embed:/" ) !== false ) 
-                    push_back($files, $asset['URI']);
+          foreach( $mainfest['assets'] as $asset ){
+              if( strpos($asset['URI'], "embed:/" ) === FALSE ) 
+                array_push($files, $asset['URI']);
           }
         return $files;   
       }
@@ -347,14 +376,13 @@ class DataManagement{
       
       // Decompose the URN to local files
       private function DecomposeURN( $encodedURN ){
-        $urn = str_replace('"', '\"', $encodedURN);
-        $path = new PathInfo();
-        $path->URN = $encodedURN;
+        $urn                = str_replace('"', '\"', $encodedURN);
+        $path               = new PathInfo();
+        $path->URN          = $encodedURN;
         $path->RootFileName = substr(strrchr($urn, "/"), 1);
         $path->BasePath     = substr($urn, 0, strrpos($urn, "/")+1 );
         $path->LocalPath    = substr($path->BasePath, strpos($path->BasePath, "/")+1 );
         $path->LocalPath    = preg_replace("/^output\//", "", $path->LocalPath);
-
         return $path;
       }
 }
