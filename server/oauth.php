@@ -16,13 +16,13 @@ class AuthClientTwoLegged{
     }    
 
     public function getTokenPublic(){     
-        if(!isset($_SESSION['AccessTokenPublic']) || $_SESSION['ExpiresTime']< time() ){
+        if(!isset($_SESSION['AccessTokenPublic']) || $_SESSION['ExpiresTimePublic']< time() ){
             $this->twoLeggedAuthPublic = new TwoLeggedAuth();
             $this->twoLeggedAuthPublic->setScopes(ForgeConfig::getScopePublic());
             $this->twoLeggedAuthPublic->fetchToken();
             $_SESSION['AccessTokenPublic'] = $this->twoLeggedAuthPublic->getAccessToken();
             $_SESSION['ExpiresInPublic']   = $this->twoLeggedAuthPublic->getExpiresIn();
-            $_SESSION['ExpiresTime']       = time() + $_SESSION['ExpiresInPublic'];
+            $_SESSION['ExpiresTimePublic'] = time() + $_SESSION['ExpiresInPublic'];
         }
         return array(
             'access_token'  => $_SESSION['AccessTokenPublic'],
@@ -34,11 +34,11 @@ class AuthClientTwoLegged{
         $this->twoLeggedAuthInternal = new TwoLeggedAuth();
         $this->twoLeggedAuthInternal->setScopes(ForgeConfig::getScopeInternal());
 
-        if(!isset($_SESSION['AccessTokenInternal']) || $_SESSION['ExpiresTime']< time() ){
+        if(!isset($_SESSION['AccessTokenInternal']) || $_SESSION['ExpiresTimeInternal']< time() ){
             $this->twoLeggedAuthInternal->fetchToken();
             $_SESSION['AccessTokenInternal'] =  $this->twoLeggedAuthInternal->getAccessToken();
             $_SESSION['ExpiresInInternal']   =    $this->twoLeggedAuthInternal->getExpiresIn();
-            $_SESSION['ExpiresTime']         = time() + $_SESSION['ExpiresInInternal'];
+            $_SESSION['ExpiresTimeInternal']         = time() + $_SESSION['ExpiresInInternal'];
         }
 
         $this->twoLeggedAuthInternal->setAccessToken($_SESSION['AccessTokenInternal']);

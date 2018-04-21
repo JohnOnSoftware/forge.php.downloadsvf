@@ -174,23 +174,23 @@ function downloadBubble(node){
   if (node == null) node = $('#appBuckets').jstree(true).get_selected(true)[0];
   var bucketKey = node.parents[0];
   var objectKey = node.id;
-  $("#forgeViewer").html('Download Started! This may take a couple of minutes, please wait.....');
+  $("#forgeViewer").html('Start Extracting and Downloading...... This may take a couple of seconds to minutes depending on your model, please wait.');
   jQuery.post({
     url: '/api/forge/oss/svf',
     contentType: 'application/json',
     data: JSON.stringify({ 'bucketKey': bucketKey, 'objectName': objectKey }),
     success: function (res) {
-      $("#forgeViewer").html('Download successfully! Please check the json file to see the details.');
+      $("#forgeViewer").html('Download successfully! Please check the downloaded json file for the details.');
       var a = document.createElement("a");
       var file = new Blob([res], {type: 'text/plain'});
       a.href = URL.createObjectURL(file);
       a.download = node.text + '.json';
       a.click();      
-      // setTimeout(launchViewer(objectKey), 5000);  
+      setTimeout(launchViewer(objectKey), 5000);  
     },
     error: function (err) {
       $("#forgeViewer").html('Sorry, Download failed!');
-      // setTimeout(launchViewer(objectKey), 5000);
+      setTimeout(launchViewer(objectKey), 5000);
     },
   });
 }
