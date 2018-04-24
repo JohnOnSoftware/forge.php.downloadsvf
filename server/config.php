@@ -35,8 +35,7 @@ class ForgeConfig{
 
     // Required scope of the token sent to the client
     public static function getScopePublic(){
-      // Will update the scope to viewables:read when #13 of autodesk/forge-client is fixed
-      return ['data:read'];
+      return ['viewables:read'];
     }
   
 }
