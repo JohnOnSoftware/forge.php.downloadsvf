@@ -138,7 +138,7 @@ class DataManagement{
                  print_r(json_encode($objectlist));
              }
          }catch(Exception $e){
-             echo 'Exception when calling ObjectsApi->getObjects: ', $e->getMessage(), PHP_EOL;
+             echo 'Exception when getting buckets/objects: ', $e->getMessage(), PHP_EOL;
          }
  
       }
@@ -174,30 +174,30 @@ class DataManagement{
       } 
 
 
-      public function DownloadSVF( ){
+      public function downloadSVF( ){
         global $twoLeggedAuth;
         $accessToken = $twoLeggedAuth->getTokenInternal();
 
         $body = json_decode(file_get_contents('php://input', 'r'), true);
         $objectUrn = $body['objectName'];
 
-        $svfList = $this->ExtractSVF($objectUrn, $accessToken);
+        $svfList = $this->extractSVF($objectUrn, $accessToken);
         print_r(json_encode($svfList));
       }    
 
 
-      private function ExtractSVF( $urn, $accessToken){
+      private function extractSVF( $urn, $accessToken){
         $derivativeApi = new DerivativesApi( $accessToken);      
         try {
-            $Manifest = $derivativeApi->getManifest($urn);
-            $this->ParseManifest($Manifest['derivatives']);
+            $manifest = $derivativeApi->getManifest($urn);
+            $this->parseManifest($manifest['derivatives']);
             foreach($this->urns as $key=>$item){
                 switch($item->MIME){
                     case "application/autodesk-svf":
-                        $item->Path->Files = $this->SVFDerivates($item, $accessToken->getAccessToken());
+                        $item->Path->Files = $this->svfDerivates($item, $accessToken->getAccessToken());
                         break;
                     case "application/autodesk-f2d":
-                        $item->Path->Files = $this->F2DDerivates($item, $accessToken->getAccessToken());
+                        $item->Path->Files = $this->f2dDerivates($item, $accessToken->getAccessToken());
                         break;
                     case "application/autodesk-db":
                         $item->Path->Files = array(
@@ -234,11 +234,12 @@ class DataManagement{
             }
             return $resourceList;
         } catch (Exception $e) {
-            echo 'Exception when calling DerivativesApi->getManifest: ', $e->getMessage(), PHP_EOL;
+            echo 'Exception when extracting the menifest: ', $e->getMessage(), PHP_EOL;
+            error_log('Exception when extracting the menifest: ' . $e->getMessage());
         }
       }
 
-      private function GetDerivative($manifest, $accessToken){
+      private function getDerivative($manifest, $accessToken){
         // urlencode the manifest
         $endpoint = self::BASE_URL . self::DERIVATIVE_PATH . urlencode($manifest);
 
@@ -262,6 +263,7 @@ class DataManagement{
         curl_close($curl);        
         if ($err) {
             echo "cURL Error #:" . $err;
+            error_log("cURL Error #:" . $err);
             return;
         } 
 
@@ -300,25 +302,25 @@ class DataManagement{
         return $manifestJson;
       }
 
-      private function SVFDerivates($ManifestItem, $accessToken){
-        $manifest = $this->GetDerivative($ManifestItem->Path->URN, $accessToken);
+      private function svfDerivates($manifestItem, $accessToken){
+        $manifest = $this->getDerivative($manifestItem->Path->URN, $accessToken);
         if(!$manifest)
             return;
         $files = array();
-        $files[] = $ManifestItem->Path->RootFileName;
-        return array_merge($files, $this->GetAssets($manifest));
+        $files[] = $manifestItem->Path->RootFileName;
+        return array_merge($files, $this->getAssets($manifest));
       }
 
-      private function F2DDerivates($ManifestItem, $accessToken){
-        $manifest = $this->GetDerivative($ManifestItem->Path->BasePath . "manifest.json.gz", $accessToken);
+      private function f2dDerivates($manifestItem, $accessToken){
+        $manifest = $this->getDerivative($manifestItem->Path->BasePath . "manifest.json.gz", $accessToken);
         if(!$manifest)
             return;
         $files = array();
         $files[] = "manifest.json.gz";
-        return array_merge($files, $this->GetAssets($manifest));
+        return array_merge($files, $this->getAssets($manifest));
       }
 
-      private function GetAssets($mainfest){
+      private function getAssets($mainfest){
           $files = [];
           foreach( $mainfest['assets'] as $asset ){
               if( strpos($asset['URI'], "embed:/" ) === FALSE ) 
@@ -327,24 +329,24 @@ class DataManagement{
         return $files;   
       }
 
-      private function ParseManifest( $manifest ){
+      private function parseManifest( $manifest ){
         foreach($manifest as $item ){
             if( $item['role'] &&  (in_array($item['role'], self::$ROLES)) ){
                 $manifestItem       = new ManifestItem();
                 $manifestItem->Guid = $item['guid'];
                 $manifestItem->MIME = $item['mime'];
-                $manifestItem->Path = $this->DecomposeURN($item['urn']);
+                $manifestItem->Path = $this->decomposeURN($item['urn']);
 
                 $this->urns[] = $manifestItem;
             }
             if( $item['children']){
-                $this->ParseManifest($item['children']);
+                $this->parseManifest($item['children']);
             }
         }
       }
       
       // Decompose the URN to local files
-      private function DecomposeURN( $encodedURN ){
+      private function decomposeURN( $encodedURN ){
         $urn                = str_replace('"', '\"', $encodedURN);
         $path               = new PathInfo();
         $path->URN          = $encodedURN;

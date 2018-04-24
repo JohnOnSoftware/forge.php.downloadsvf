@@ -41,7 +41,7 @@ $klein->respond('POST', '/api/forge/oss/objects', function () {
 // Download svf package
 $klein->respond('POST', '/api/forge/oss/svf', function () {
     $dataManagement = new DataManagement();
-    return $dataManagement->DownloadSVF();
+    return $dataManagement->downloadSVF();
 });
 
 // Start translate the model
