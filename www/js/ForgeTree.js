@@ -91,18 +91,18 @@ function autodeskCustomMenu(autodeskNode) {
   var items;
 
   switch (autodeskNode.type) {
-    case "bucket":
-      items = {
-        uploadFile: {
-          label: "Upload file",
-          action: function () {
-            var treeNode = $('#appBuckets').jstree(true).get_selected(true)[0];
-            uploadFile(treeNode);
-          },
-          icon: 'glyphicon glyphicon-cloud-upload'
-        }
-      };
-      break;
+    // case "bucket":
+    //   items = {
+    //     uploadFile: {
+    //       label: "Upload file",
+    //       action: function () {
+    //         var treeNode = $('#appBuckets').jstree(true).get_selected(true)[0];
+    //         uploadFile(treeNode);
+    //       },
+    //       icon: 'glyphicon glyphicon-cloud-upload'
+    //     }
+    //   };
+    //   break;
     case "object":
       items = {
         translateFile: {
