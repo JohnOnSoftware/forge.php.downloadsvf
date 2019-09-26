@@ -1,6 +1,9 @@
 <IfModule mod_rewrite.c>
  RewriteEngine on
  RewriteBase /
+ 
+ RewriteCond %{HTTP:X-Forwarded-Proto} !https . #Force SSL for Heroku
+ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
  RewriteCond %{REQUEST_URI} !^/www(.*)$
  RewriteCond %{REQUEST_URI} ^.*.(js|css)$
